@@ -120,6 +120,11 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('projects', ProjectController::class)->except(['destroy']);
 });
 
+// Temporary manual-testing URL for the reports module preview view.
+    Route::view('reports/module-overview', 'reports.module-overview')
+        ->name('reports.module-overview');
+
+
 Route::middleware(['auth', 'role:committee_leader'])->prefix('comite/projects/evaluation')->name('projects.evaluation.')->group(function () {
     Route::get('/', [ProjectEvaluationController::class, 'index'])->name('index');
     Route::get('/{project}', [ProjectEvaluationController::class, 'show'])->name('show');
