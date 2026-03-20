@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Reports;
+namespace App\Services\Projects\Reports;
 
 use InvalidArgumentException;
 

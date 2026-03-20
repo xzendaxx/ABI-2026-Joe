@@ -7,7 +7,7 @@
         $from = (string) request('from', '');
         $to = (string) request('to', '');
 
-        $factoryClass = '\\App\\Services\\Reports\\ReportModuleFactory';
+        $factoryClass = '\\App\\Services\\Projects\\Reports\\ReportModuleFactory';
         $autoloadReady = class_exists($factoryClass);
         $reportData = [
             'categories' => [],
