@@ -17,6 +17,7 @@ use App\Http\Controllers\ResearchGroupController;
 use App\Http\Controllers\ThematicAreaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectReportController;
 use App\Http\Controllers\ProjectEvaluationController;
 use App\Http\Controllers\BankApprovedIdeasForStudentsController;
 use App\Http\Controllers\BankApprovedIdeasForProfessorsController;
@@ -120,9 +121,9 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('projects', ProjectController::class)->except(['destroy']);
 });
 
-// Temporary manual-testing URL for the reports module preview view.
-    Route::view('reports/module-overview', 'reports.module-overview')
-        ->name('reports.module-overview');
+Route::middleware(['auth', 'role:research_staff,committee_leader'])->prefix('reports')->name('reports.')->group(function () {
+    Route::get('module-overview', [ProjectReportController::class, 'index'])->name('module-overview');
+});
 
 
 Route::middleware(['auth', 'role:committee_leader'])->prefix('comite/projects/evaluation')->name('projects.evaluation.')->group(function () {

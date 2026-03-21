@@ -6,20 +6,18 @@ use App\Models\Project;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
-/**
- * Report module that returns project distribution by status from database.
- */
-class ProjectStatusReportModule extends AbstractProjectDistributionReport
+class ProjectInvestigationLineReportModule extends AbstractProjectDistributionReport
 {
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, object>
      */
     protected function fetchDistribution(array $filters = []): Collection
     {
         $query = Project::query()
-            ->leftJoin('project_statuses', 'project_statuses.id', '=', 'projects.project_status_id')
-            ->selectRaw("COALESCE(project_statuses.name, 'Sin estado') as category")
+            ->leftJoin('thematic_areas', 'thematic_areas.id', '=', 'projects.thematic_area_id')
+            ->leftJoin('investigation_lines', 'investigation_lines.id', '=', 'thematic_areas.investigation_line_id')
+            ->selectRaw("COALESCE(investigation_lines.name, 'Sin linea de investigacion') as category")
             ->selectRaw('COUNT(projects.id) as total')
             ->groupBy('category')
             ->orderByDesc('total');
@@ -31,6 +29,8 @@ class ProjectStatusReportModule extends AbstractProjectDistributionReport
 
     protected function applyCategorySearch(Builder $query, string $term): void
     {
-        $query->orWhere('project_statuses.name', 'like', $term);
+        $query
+            ->orWhere('thematic_areas.name', 'like', $term)
+            ->orWhere('investigation_lines.name', 'like', $term);
     }
 }
