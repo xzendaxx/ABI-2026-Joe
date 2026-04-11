@@ -7,7 +7,6 @@ use App\Http\Requests\ProjectReportRequest;
 use App\Models\Program;
 use App\Services\Projects\Reports\ReportModuleFactory;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectReportController extends Controller
@@ -17,99 +16,73 @@ class ProjectReportController extends Controller
     ) {
     }
 
-    public function index(ProjectReportRequest $request): View|Response|StreamedResponse
+    public function index(ProjectReportRequest $request): View|StreamedResponse
     {
         $reportKey = $request->reportKey();
         $availableModules = $this->reportFactory->availableModules();
         $activeReport = $availableModules[$reportKey] ?? $availableModules[ReportModuleFactory::PROJECTS_BY_STATUS];
         [$viewer, $filters, $scopeSummary] = $this->resolveContext($request);
         $reportData = $this->reportFactory->make($reportKey)->generate($filters);
-        $segments = $this->buildSegments($reportData);
-        $exportFormat = $request->exportFormat();
 
-        if ($exportFormat !== null) {
-            return $this->export($exportFormat, $reportKey, $activeReport, $reportData, $filters, $scopeSummary, $viewer, $segments);
+        if ($request->exportFormat() !== null) {
+            return $this->export($reportKey, $reportData);
         }
 
         return view('reports.module-overview', [
             'reportData' => $reportData,
             'filters' => $filters,
             'programOptions' => $viewer->role === 'research_staff'
-                ? Program::query()->orderBy('name')->get(['id', 'name'])
+                ? Program::query()
+                    ->selectRaw('MIN(id) as id, name')
+                    ->groupBy('name')
+                    ->orderBy('name')
+                    ->get()
                 : collect(),
             'scopeSummary' => $scopeSummary,
-            'segments' => $segments,
+            'segments' => $this->buildSegments($reportData),
             'reportModules' => $availableModules,
             'activeReportKey' => $reportKey,
             'activeReport' => $activeReport,
-            'isExportMode' => false,
         ]);
     }
 
     /**
-     * @param  array{label: string, description: string}  $activeReport
      * @param  array{categories: array<int, string>, values: array<int, int>, percentages: array<int, float>, total: int}  $reportData
-     * @param  array{from: ?string, to: ?string, program_id: ?int, search: ?string}  $filters
-     * @param  array<int, array{label: string, value: int, percentage: float, color: string}>  $segments
      */
-    private function export(
-        string $format,
-        string $reportKey,
-        array $activeReport,
-        array $reportData,
-        array $filters,
-        string $scopeSummary,
-        object $viewer,
-        array $segments
-    ): Response|StreamedResponse {
-        $filename = $this->buildFilename($format, $reportKey);
+    private function export(string $reportKey, array $reportData): StreamedResponse
+    {
+        $filename = sprintf(
+            'reporte-proyectos-%s-%s.csv',
+            now()->format('Ymd-His'),
+            str_replace('_', '-', $reportKey)
+        );
 
-        if ($format === 'csv') {
-            return response()->streamDownload(function () use ($reportData): void {
-                $handle = fopen('php://output', 'wb');
+        return response()->streamDownload(function () use ($reportData): void {
+            $handle = fopen('php://output', 'wb');
 
-                if ($handle === false) {
-                    return;
-                }
+            if ($handle === false) {
+                return;
+            }
 
-                fputcsv($handle, ['Categoria', 'Valor', 'Porcentaje']);
+            fputcsv($handle, ['Categoria', 'Valor', 'Porcentaje']);
 
-                foreach ($reportData['categories'] as $index => $category) {
-                    fputcsv($handle, [
-                        $category,
-                        $reportData['values'][$index] ?? 0,
-                        $reportData['percentages'][$index] ?? 0,
-                    ]);
-                }
+            foreach ($reportData['categories'] as $index => $category) {
+                fputcsv($handle, [
+                    $category,
+                    $reportData['values'][$index] ?? 0,
+                    $reportData['percentages'][$index] ?? 0,
+                ]);
+            }
 
-                fputcsv($handle, ['Total', $reportData['total'], 100]);
-                fclose($handle);
-            }, $filename, [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-            ]);
-        }
-
-        $html = view('reports.module-overview', [
-            'reportData' => $reportData,
-            'filters' => $filters,
-            'programOptions' => collect(),
-            'scopeSummary' => $scopeSummary,
-            'segments' => $segments,
-            'reportModules' => $this->reportFactory->availableModules(),
-            'activeReportKey' => $reportKey,
-            'activeReport' => $activeReport,
-            'isExportMode' => true,
-            'viewer' => $viewer,
-        ])->render();
-
-        $pdf = app('dompdf.wrapper');
-        $pdf->loadHTML($html);
-
-        return $pdf->download($filename);
+            fputcsv($handle, ['Total', $reportData['total'], 100]);
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     /**
-     * @return array{0: \App\Models\User, 1: array{from: ?string, to: ?string, program_id: ?int, search: ?string}, 2: string}
+     * @return array{0: \App\Models\User, 1: array{from: ?string, to: ?string, program_id: ?int, search: ?string, chart_type: ?string}, 2: string}
      */
     private function resolveContext(ProjectReportRequest $request): array
     {
@@ -169,10 +142,5 @@ class ProjectReportController extends Controller
         }
 
         return $segments;
-    }
-
-    private function buildFilename(string $format, string $reportKey): string
-    {
-        return sprintf('reporte-proyectos-%s-%s.%s', now()->format('Ymd-His'), str_replace('_', '-', $reportKey), $format);
     }
 }

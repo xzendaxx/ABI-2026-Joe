@@ -4,8 +4,7 @@
 
 @section('content')
     @php
-        $isExportMode = $isExportMode ?? false;
-        $filters = $filters ?? ['from' => null, 'to' => null, 'program_id' => null, 'search' => null];
+        $filters = $filters ?? ['from' => null, 'to' => null, 'program_id' => null, 'search' => null, 'chart_type' => 'pastel'];
         $reportData = $reportData ?? [
             'categories' => [],
             'values' => [],
@@ -20,6 +19,7 @@
             'label' => 'Proyectos por estado',
             'description' => 'Compara la distribucion de proyectos segun su estado actual.',
         ]);
+        $chartType = $filters['chart_type'] ?? 'pastel';
         $topSegment = collect($segments)->sortByDesc('value')->first();
         $currentPercent = 0;
         $chartStops = [];
@@ -36,6 +36,7 @@
 
         $baseQuery = array_filter([
             'report_key' => $activeReportKey,
+            'chart_type' => $chartType,
             'search' => $filters['search'],
             'from' => $filters['from'],
             'to' => $filters['to'],
@@ -150,30 +151,49 @@
             border-radius: 999px;
         }
 
-        .report-bars {
+        .report-columns {
             display: grid;
-            gap: 0.9rem;
-        }
-
-        .report-bar__head {
-            display: flex;
-            justify-content: space-between;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 1rem;
-            margin-bottom: 0.45rem;
-            font-size: 0.95rem;
-            color: #334155;
+            align-items: end;
+            min-height: 320px;
         }
 
-        .report-bar__track {
-            height: 0.8rem;
-            background: #e2e8f0;
-            border-radius: 999px;
-            overflow: hidden;
+        .report-columns__item {
+            display: grid;
+            gap: 0.75rem;
+            justify-items: center;
         }
 
-        .report-bar__fill {
-            height: 100%;
-            border-radius: inherit;
+        .report-columns__chart {
+            width: 100%;
+            min-height: 240px;
+            padding: 0.75rem;
+            border-radius: 16px;
+            background: #f8fafc;
+            display: flex;
+            align-items: end;
+            justify-content: center;
+        }
+
+        .report-columns__bar {
+            width: min(72px, 100%);
+            min-height: 6px;
+            border-radius: 14px 14px 0 0;
+        }
+
+        .report-columns__value {
+            font-weight: 700;
+            color: #0f172a;
+            text-align: center;
+        }
+
+        .report-columns__label {
+            color: #475569;
+            text-align: center;
+            font-size: 0.92rem;
+            line-height: 1.3;
+            word-break: break-word;
         }
 
         @media (max-width: 991px) {
@@ -183,109 +203,99 @@
         }
     </style>
 
-    @if (! $isExportMode)
-        <div class="page-header d-print-none">
-            <div class="container-xl">
-                <h2 class="page-title">Modulo de Reportes</h2>
-                <p class="text-muted mb-0">
-                    Vista de prueba unica para consultar diferentes datos del sistema y compararlos desde un mismo buscador.
-                </p>
-            </div>
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <h2 class="page-title">Modulo de Reportes</h2>
+            <p class="text-muted mb-0">
+                Vista de prueba unica para consultar diferentes datos del sistema y compararlos desde un mismo buscador.
+            </p>
         </div>
-    @endif
+    </div>
 
-    <div class="{{ $isExportMode ? 'py-3' : 'page-body' }}">
-        <div class="{{ $isExportMode ? 'container-fluid' : 'container-xl' }}">
+    <div class="page-body">
+        <div class="container-xl">
             <div class="reports-shell">
-                @if (! $isExportMode)
-                    @if ($errors->any())
-                        <div class="alert alert-danger mb-0">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger mb-0">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
 
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">Parametros de prueba</h3>
-                        </div>
-                        <div class="card-body">
-                            <form method="GET" class="row g-3 align-items-end">
-                                <div class="col-md-3">
-                                    <label for="report_key" class="form-label">Que deseas comparar</label>
-                                    <select id="report_key" name="report_key" class="form-select">
-                                        @foreach ($reportModules as $reportKey => $module)
-                                            <option value="{{ $reportKey }}" @selected($activeReportKey === $reportKey)>
-                                                {{ $module['label'] }}
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Parametros de prueba</h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="GET" class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label for="report_key" class="form-label">Que deseas comparar</label>
+                                <select id="report_key" name="report_key" class="form-select">
+                                    @foreach ($reportModules as $reportKey => $module)
+                                        <option value="{{ $reportKey }}" @selected($activeReportKey === $reportKey)>
+                                            {{ $module['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="search" class="form-label">Buscar dato</label>
+                                <input
+                                    type="text"
+                                    id="search"
+                                    name="search"
+                                    class="form-control"
+                                    placeholder="Estado, area, linea o titulo"
+                                    value="{{ $filters['search'] }}"
+                                >
+                            </div>
+                            <div class="col-md-2">
+                                <label for="from" class="form-label">Desde</label>
+                                <input
+                                    type="date"
+                                    id="from"
+                                    name="from"
+                                    class="form-control"
+                                    value="{{ $filters['from'] }}"
+                                >
+                            </div>
+                            <div class="col-md-2">
+                                <label for="to" class="form-label">Hasta</label>
+                                <input
+                                    type="date"
+                                    id="to"
+                                    name="to"
+                                    class="form-control"
+                                    value="{{ $filters['to'] }}"
+                                >
+                            </div>
+                            @if ($programOptions->isNotEmpty())
+                                <div class="col-md-2">
+                                    <label for="program_id" class="form-label">Programa</label>
+                                    <select id="program_id" name="program_id" class="form-select">
+                                        <option value="">Todos los programas</option>
+                                        @foreach ($programOptions as $program)
+                                            <option value="{{ $program->id }}" @selected((int) $filters['program_id'] === (int) $program->id)>
+                                                {{ $program->name }}
                                             </option>
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <label for="search" class="form-label">Buscar dato</label>
-                                    <input
-                                        type="text"
-                                        id="search"
-                                        name="search"
-                                        class="form-control"
-                                        placeholder="Estado, area, linea, framework o titulo"
-                                        value="{{ $filters['search'] }}"
+                            @endif
+                            <div class="col-md-{{ $programOptions->isNotEmpty() ? '12' : '2' }}">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="submit" class="btn btn-primary">Generar reporte</button>
+                                    <a href="{{ route('reports.module-overview') }}" class="btn btn-outline-secondary">Limpiar</a>
+                                    <a
+                                        href="{{ route('reports.module-overview', array_merge($baseQuery, ['export' => 'csv'])) }}"
+                                        class="btn btn-outline-primary"
                                     >
+                                        Exportar CSV
+                                    </a>
                                 </div>
-                                <div class="col-md-2">
-                                    <label for="from" class="form-label">Desde</label>
-                                    <input
-                                        type="date"
-                                        id="from"
-                                        name="from"
-                                        class="form-control"
-                                        value="{{ $filters['from'] }}"
-                                    >
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="to" class="form-label">Hasta</label>
-                                    <input
-                                        type="date"
-                                        id="to"
-                                        name="to"
-                                        class="form-control"
-                                        value="{{ $filters['to'] }}"
-                                    >
-                                </div>
-                                @if ($programOptions->isNotEmpty())
-                                    <div class="col-md-2">
-                                        <label for="program_id" class="form-label">Programa</label>
-                                        <select id="program_id" name="program_id" class="form-select">
-                                            <option value="">Todos los programas</option>
-                                            @foreach ($programOptions as $program)
-                                                <option value="{{ $program->id }}" @selected((int) $filters['program_id'] === (int) $program->id)>
-                                                    {{ $program->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                @endif
-                                <div class="col-md-{{ $programOptions->isNotEmpty() ? '12' : '2' }}">
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <button type="submit" class="btn btn-primary">Generar reporte</button>
-                                        <a href="{{ route('reports.module-overview') }}" class="btn btn-outline-secondary">Limpiar</a>
-                                        <a
-                                            href="{{ route('reports.module-overview', array_merge($baseQuery, ['export' => 'csv'])) }}"
-                                            class="btn btn-outline-primary"
-                                        >
-                                            Exportar CSV
-                                        </a>
-                                        <a
-                                            href="{{ route('reports.module-overview', array_merge($baseQuery, ['export' => 'pdf'])) }}"
-                                            class="btn btn-outline-dark"
-                                        >
-                                            Exportar PDF
-                                        </a>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
-                @endif
+                </div>
 
                 <div class="card">
                     <div class="card-header">
@@ -296,12 +306,6 @@
                         </div>
                     </div>
                     <div class="card-body reports-shell">
-                        @if ($isExportMode)
-                            <div class="text-muted small">
-                                Generado el {{ now()->format('Y-m-d H:i') }}
-                            </div>
-                        @endif
-
                         @if (! empty($filters['search']))
                             <div class="alert alert-secondary mb-0">
                                 Busqueda aplicada: <strong>{{ $filters['search'] }}</strong>
@@ -330,58 +334,111 @@
                             <code>categories[]</code>, <code>values[]</code>, <code>percentages[]</code> y <code>total</code>.
                         </div>
 
-                        <div class="report-visual">
-                            <div class="report-donut-wrap">
-                                <div class="report-donut">
-                                    <div class="report-donut__center">
-                                        <div>
-                                            <strong>{{ $reportData['total'] }}</strong>
-                                            <span>Total de proyectos</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="text-muted text-center">
-                                    Visualizacion proporcional construida a partir de categorias y valores.
-                                </div>
-                            </div>
-
-                            <div class="report-legend">
-                                @forelse ($segments as $segment)
-                                    <div class="report-legend__item">
-                                        <span class="report-legend__swatch" style="background: {{ $segment['color'] }}"></span>
-                                        <div>
-                                            <div class="fw-semibold">{{ $segment['label'] }}</div>
-                                            <div class="text-muted small">{{ $segment['value'] }} registros</div>
-                                        </div>
-                                        <div class="fw-semibold">{{ number_format($segment['percentage'], 2) }}%</div>
-                                    </div>
-                                @empty
-                                    <div class="text-muted">Sin datos para construir la visualizacion.</div>
-                                @endforelse
-                            </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a
+                                href="{{ route('reports.module-overview', array_merge($baseQuery, ['chart_type' => 'pastel'])) }}"
+                                class="btn {{ $chartType === 'pastel' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            >
+                                Diagrama pastel
+                            </a>
+                            <a
+                                href="{{ route('reports.module-overview', array_merge($baseQuery, ['chart_type' => 'columnas'])) }}"
+                                class="btn {{ $chartType === 'columnas' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            >
+                                Diagrama de columnas
+                            </a>
+                            <a
+                                href="{{ route('reports.module-overview', array_merge($baseQuery, ['chart_type' => 'comparativo'])) }}"
+                                class="btn {{ $chartType === 'comparativo' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            >
+                                Cuadro comparativo
+                            </a>
                         </div>
 
-                        <div>
-                            <h4 class="mb-3">Comparacion de proporciones</h4>
-                            <div class="report-bars">
-                                @forelse ($segments as $segment)
-                                    <div>
-                                        <div class="report-bar__head">
-                                            <span>{{ $segment['label'] }}</span>
-                                            <span>{{ $segment['value'] }} | {{ number_format($segment['percentage'], 2) }}%</span>
-                                        </div>
-                                        <div class="report-bar__track">
-                                            <div
-                                                class="report-bar__fill"
-                                                style="width: {{ min(100, $segment['percentage']) }}%; background: {{ $segment['color'] }};"
-                                            ></div>
+                        @if ($chartType === 'pastel')
+                            <div class="report-visual">
+                                <div class="report-donut-wrap">
+                                    <div class="report-donut">
+                                        <div class="report-donut__center">
+                                            <div>
+                                                <strong>{{ $reportData['total'] }}</strong>
+                                                <span>Total de proyectos</span>
+                                            </div>
                                         </div>
                                     </div>
-                                @empty
-                                    <div class="text-muted">No hay proporciones para comparar con los filtros actuales.</div>
-                                @endforelse
+                                    <div class="text-muted text-center">
+                                        Visualizacion proporcional construida a partir de categorias y valores.
+                                    </div>
+                                </div>
+
+                                <div class="report-legend">
+                                    @forelse ($segments as $segment)
+                                        <div class="report-legend__item">
+                                            <span class="report-legend__swatch" style="background: {{ $segment['color'] }}"></span>
+                                            <div>
+                                                <div class="fw-semibold">{{ $segment['label'] }}</div>
+                                                <div class="text-muted small">{{ $segment['value'] }} registros</div>
+                                            </div>
+                                            <div class="fw-semibold">{{ number_format($segment['percentage'], 2) }}%</div>
+                                        </div>
+                                    @empty
+                                        <div class="text-muted">Sin datos para construir la visualizacion.</div>
+                                    @endforelse
+                                </div>
                             </div>
-                        </div>
+                        @elseif ($chartType === 'columnas')
+                            <div>
+                                <h4 class="mb-3">Diagrama de columnas</h4>
+                                <div class="report-columns">
+                                    @forelse ($segments as $segment)
+                                        <div class="report-columns__item">
+                                            <div class="report-columns__value">
+                                                {{ $segment['value'] }} | {{ number_format($segment['percentage'], 2) }}%
+                                            </div>
+                                            <div class="report-columns__chart">
+                                                <div
+                                                    class="report-columns__bar"
+                                                    style="height: {{ max(6, min(100, $segment['percentage'])) }}%; background: {{ $segment['color'] }};"
+                                                ></div>
+                                            </div>
+                                            <div class="report-columns__label">{{ $segment['label'] }}</div>
+                                        </div>
+                                    @empty
+                                        <div class="text-muted">No hay datos para construir el diagrama de columnas.</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        @else
+                            <div>
+                                <h4 class="mb-3">Cuadro comparativo</h4>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-striped align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Categoria</th>
+                                                <th class="text-end">Valor</th>
+                                                <th class="text-end">Porcentaje</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse ($segments as $index => $segment)
+                                                <tr>
+                                                    <td>{{ $index + 1 }}</td>
+                                                    <td>{{ $segment['label'] }}</td>
+                                                    <td class="text-end">{{ $segment['value'] }}</td>
+                                                    <td class="text-end">{{ number_format($segment['percentage'], 2) }}%</td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="text-center text-muted">Sin datos para comparar.</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
 
                         <div class="table-responsive">
                             <table class="table card-table table-vcenter">
